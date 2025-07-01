@@ -1,0 +1,9 @@
+transformers>=4.30.0
+datasets>=2.14.0
+accelerate>=0.20.0
+torch>=2.0.0
+scikit-learn>=1.2.2
+matplotlib>=3.7.1
+seaborn>=0.12.2
+pandas>=2.0.0
+ipykernel>=6.25.0
