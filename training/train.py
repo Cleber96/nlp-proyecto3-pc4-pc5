@@ -13,6 +13,8 @@ from transformers import (
     TrainerControl
 )
 from datasets import load_from_disk, DatasetDict
+from peft import LoraConfig, get_peft_model, TaskType
+from adapters import AutoAdapterModel, AdapterConfig, PfeifferConfig 
 
 # Import módulos locales
 from config import settings
@@ -102,6 +104,19 @@ def train_model():
             train_dataset = train_dataset['train']
         if isinstance(eval_dataset, DatasetDict):
             eval_dataset = eval_dataset['validation']
+            
+        # -- se busca reducir el tiempo de entrenamiento ---
+        sample_train_size = 1000 
+        sample_eval_size = 200
+
+        if len(train_dataset) > sample_train_size:
+            train_dataset = train_dataset.select(range(sample_train_size))
+            logger.info(f"Dataset de entrenamiento reducido a {len(train_dataset)} muestras para prueba rápida.")
+        
+        if len(eval_dataset) > sample_eval_size:
+            eval_dataset = eval_dataset.select(range(sample_eval_size))
+            logger.info(f"Dataset de validación reducido a {len(eval_dataset)} muestras para prueba rápida.")
+        # ------------------------------------------------------------------
     except Exception as e:
         logger.error(f"Error al cargar los datasets procesados: {e}")
         logger.error("Asegúrate de que '01_Data_Preprocessing_and_Tokenization.ipynb' haya sido ejecutado.")
@@ -130,6 +145,41 @@ def train_model():
         logger.error(f"Error al cargar el modelo '{settings.MODEL_NAME}': {e}")
         return
 
+
+    
+    
+    # onfiguración de LoRA
+    lora_config = LoraConfig(
+        r=8,                       # rank = 8
+        lora_alpha=16,             # alpha = 16
+        target_modules=[
+            "q_lin", "k_lin", "v_lin", "out_lin" # Capas de atención para DistilBERT
+        ],
+        lora_dropout=0.1,          # Un dropout típico para LoRA (opcional, pero buena práctica)
+        bias="none",               # No aplicar LoRA a los sesgos
+        task_type=TaskType.SEQ_CLS # Especificar la tarea de clasificación de secuencia
+    )
+
+    # Aplica LoRA al modelo
+    model = get_peft_model(model, lora_config)
+    
+    # Imprime los parámetros entrenables para verificar
+    model.print_trainable_parameters() 
+    logger.info("LoRA aplicado al modelo. Se han modificado los parámetros entrenables.")
+
+
+    
+    
+    
+    adapter_config = PfeifferConfig(
+        reduction_factor=16,
+        non_linearity="relu",
+        leave_out=["predictions"],
+        bottleneck_dim=64
+    )
+    
+    
+    
     if settings.USE_MIXOUT:
         try:
             original_pretrained_model_copy = AutoModelForSequenceClassification.from_pretrained(

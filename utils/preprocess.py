@@ -65,8 +65,8 @@ def split_data(df: pd.DataFrame, test_size: float = 0.2, val_size: float = 0.1, 
     return raw_datasets
 
 
-def tokenize_function(examples, tokenizer, text_column, max_length):
-    return tokenizer(examples[text_column], truncation=True, max_length=max_length)
+def tokenize_function(examples, tokenizer, text_column): 
+    return tokenizer(examples[text_column], truncation=True, max_length=128, padding=False)
 
 def preprocess_and_tokenize(raw_datasets: DatasetDict, model_name: str, text_column: str, max_length: int) -> DatasetDict:
     logger.info(f"Cargando tokenizer para '{model_name}' y tokenizando datasets...")

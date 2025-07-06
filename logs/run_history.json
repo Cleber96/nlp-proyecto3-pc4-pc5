@@ -1,63 +1,18 @@
 [
     {
-        "epoch": 0.0,
-        "global_step": 1,
-        "loss": 0.6987,
-        "learning_rate": 5e-05,
-        "grad_norm": 2.56,
-        "train_runtime": 1.23,
-        "train_samples_per_second": 32.1,
-        "total_flos": 1234567.0,
-        "train_loss": 0.6987,
-        "run_time": "2025-07-03T16:55:00"
+        "loss": 0.6778,
+        "grad_norm": 1.0564953088760376,
+        "learning_rate": 0.0,
+        "epoch": 0.015873015873015872,
+        "step": 1
     },
     {
-        "epoch": 0.5,
-        "global_step": 100,
-        "loss": 0.5521,
-        "learning_rate": 4.8e-05,
-        "run_time": "2025-07-03T16:55:30"
-    },
-    {
-        "epoch": 1.0,
-        "global_step": 200,
-        "eval_loss": 0.4567,
-        "eval_accuracy": 0.885,
-        "eval_precision": 0.879,
-        "eval_recall": 0.885,
-        "eval_f1": 0.882,
-        "eval_runtime": 0.56,
-        "eval_samples_per_second": 50.2,
-        "run_time": "2025-07-03T16:56:00"
-    },
-    {
-        "epoch": 1.5,
-        "global_step": 300,
-        "loss": 0.4012,
-        "learning_rate": 4.6e-05,
-        "run_time": "2025-07-03T16:56:30"
-    },
-    {
+        "train_runtime": 343.3635,
+        "train_samples_per_second": 5.825,
+        "train_steps_per_second": 0.367,
+        "total_flos": 66233699328000.0,
+        "train_loss": 0.47013972817905364,
         "epoch": 2.0,
-        "global_step": 400,
-        "eval_loss": 0.3891,
-        "eval_accuracy": 0.901,
-        "eval_precision": 0.898,
-        "eval_recall": 0.901,
-        "eval_f1": 0.900,
-        "eval_runtime": 0.55,
-        "eval_samples_per_second": 51.0,
-        "run_time": "2025-07-03T16:57:00"
-    },
-    {
-        "epoch": 2.0,
-        "global_step": 400,
-        "train_runtime": 150.0,
-        "train_samples_per_second": 28.0,
-        "train_steps_per_second": 1.2,
-        "train_loss": 0.5298,
-        "epoch": 2.0,
-        "total_flos": 2469134.0,
-        "run_time": "2025-07-03T16:57:05"
+        "step": 126
     }
 ]

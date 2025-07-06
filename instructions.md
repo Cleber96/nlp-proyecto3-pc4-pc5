@@ -1,48 +1,56 @@
-## Miniproyectos CC0C2
+# **Práctica calificada 5 CC0C2**
+## Examen 2: Fine-tuning de Transformers con Hugging Face y Técnicas Avanzadas  
+**Duración:** 3 horas  
+**Repositorio base:** [nlp-proyecto3-pc4-pc5](https://github.com/Cleber96/nlp-proyecto3-pc4-pc5.git)
 
-**Estructura de evaluación sugerida:**
-* **Proyecto (código, cuaderno de resultados):** Hasta 8 puntos.
-* **Presentación (claridad, análisis, demostración, vídeo):** Hasta 12 punto (este punto es crucial y refleja la priorización de la exposición).
-* **Entrega la dirección del repositorio de desarrollo**.
-* **Fecha de presentación:** 3 de julio desde las 16:00 hrs.
+### Tokenización y DataLoader  
+- En `data/preprocess.py`, ajusta la tokenización para truncar a 128 tokens y pad dinámico.  
+- Describe cómo habilitarías `gradient_accumulation` en un entorno con 4 GB de GPU.
 
-#### Controles generales para todos los proyectos
+### Configurar Trainer con adapters y LoRA  
+En `training/trainer_config.py`:  
+- Añade una confi### Tokenización y DataLoader  
+- En `data/preprocess.py`, ajusta la tokenización para truncar a 128 tokens y pad dinámico.  
+- Describe cómo habilitarías `gradient_accumulation` en un entorno con 4 GB de GPU.
 
-1. **Pruebas de integridad de código**: scripts basados en AST (`tests/check_originality.py`) que evalúan similitudes estructurales con soluciones externas.
-2. **Presentación y defensa**: demo en vivo o video corto donde el equipo explica el flujo interno.
-3. **Callbacks y tests personalizados**: cada proyecto incluye ejercicios teóricos (`.md`) y pruebas unitarias que exigen respuestas y comportamientos personalizados.
-4. **Fingerprinting de ejecución**: al guardar checkpoints o logs se añade un hash único (HMAC) vinculado al equipo.
+### Configurar Trainer con adapters y LoRA  
+En `training/trainer_config.py`:  
+- Añade una configuración de LoRA (`rank=8`, `α=16`) aplicada a las capas de atención.  
+- Un Adapter (`bottleneck=64`) en cada capa feed-forward.  
+- Define cómo en el loop de entrenamiento se habilitan solo estos parámetros para optimización.
 
-### Proyecto 3: Fine-tuning con Transformers y Hugging Face
+### Implementación de AWP y mixout manual  
+En `training/train.py`, dentro de `compute_loss` o hook de backward:  
+- Aplica AWP con `ε=0.01` durante la mitad de cada epoch.  
+- Integra mixout con `p=0.1` en las capas lineales del classifier.
 
-**Contexto y motivación**
-El ecosistema Hugging Face simplifica enormemente el fine-tuning de modelos pre-entrenados. Este proyecto guía al estudiante por todo el flujo: desde la tokenización hasta el entrenamiento supervisado con callbacks y métricas personalizadas.
+### Callbacks y métricas  
+- Crea un callback sencillo para early stopping tras 3 epochs sin mejora en F1.  
+- Ajusta `compute_metrics` para devolver precision, recall y F1, y muestra la matriz de confusión tras el entrenamiento.
 
-**Objetivos**
+### Evaluación final  
+- Ejecuta `evaluation/eval.py` sobre el test set y captura el reporte de clasificación.  
+- Redacta en 5 líneas cómo afectarían los adapters y LoRA a la latencia de inferencia.
 
-1. Preprocesar un corpus pequeño (p. ej. reseñas de producto) usando `datasets` y el tokenizador "fast" elegido.
-2. Configurar un `Trainer` con:
+#### Entrega
 
-   * `TrainingArguments` parametrizables (batch size, learning rate, epochs).
-   * Callbacks para early stopping y logging personalizado.
-   * Métricas de precisión y recall usando `compute_metrics`.
-3. Implementar AWP (Adversarial Weight Perturbation) y mixout de forma manual, sin librerías externas, dentro del loop de entrenamiento.
-4. Añadir manejo de gradiente acumulado y detección de OOM con reinicio suave del entrenamiento.
+Cada estudiante presentará su propio repositorio con todos los scripts modificados, los resultados (tablas, gráficas, checkpoints) y un informe en Markdown que documente brevemente la instalación, la ejecución y un análisis de los resultados obtenidos.
 
-**Entregables**
+#### Puntuaciones
 
-* `data/preprocess.py`: tokenización, limpieza y split del dataset.
-* `training/trainer_config.py`: funciones que devuelven `TrainingArguments` y listas de callbacks.
-* `training/train.py`: orquestador principal que carga data, modelo (`AutoModelForSequenceClassification`) y lanza `Trainer`.
-* `evaluation/eval.py`: script para evaluar en test set, generar matriz de confusión y reportes de classification.
-* `logs/`:
-
-  * Checkpoints guardados automáticamente.
-  * Archivos de TensorBoard (`.tfevents`).
-* **Vídeo de demostración**: \~10 min mostrando la ejecución de `train.py`, visualización de métricas en TensorBoard y un ejemplo de inferencia con `pipeline`.
-
-**Retos clave**
-
-* Integrar AWP y mixout controlando que no interfieran con el scheduler de optimización.
-* Diseñar un callback de early stopping sencillo.
-* Balancear batch size y gradiente acumulado para evitar OOM en GPUs limitadas.
+#### Examen 2: Fine-tuning con Transformers y técnicas avanzadas (20 pt)  
+- **Preprocesamiento y DataLoader (3 pt)**
+  - 2 pt: Tokenización a 128 tokens y padding dinámico.  
+  - 1 pt: Uso adecuado de `gradient_accumulation` en entorno limitado.
+- **Configuración de LoRA y Adapters (5 pt)**
+  - 3 pt: Parámetros de LoRA (rank, α) aplicados correctamente.  
+  - 2 pt: Adapters integrados en capas feed-forward.
+- **Implementación de AWP y mixout (4 pt)**
+  - 2 pt: AWP en el loop de entrenamiento.  
+  - 2 pt: Mixout incorporado en capas lineales.
+- **Callbacks y métricas (4 pt)**
+  - 2 pt: Callback de early stopping funcionando.  
+  - 2 pt: Métricas de precision, recall y F1, y matriz de confusión.
+- **Análisis de resultados (4 pt)**
+  - 2 pt: Tabla comparativa de parámetros entrenables vs. full fine-tuning.  
+  - 2 pt: Comentario sobre impacto en latencia y uso de GPU.

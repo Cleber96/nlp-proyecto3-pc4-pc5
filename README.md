@@ -1,105 +1,116 @@
-# PROYECTO 03 :Fine-tuning de Transformers con Hugging Face y Técnicas Avanzadas
-
-## Visión General del Proyecto
-
-Este proyecto es una implementación completa y paso a paso para realizar **fine-tuning de modelos Transformers** utilizando la popular librería [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) y [Hugging Face Datasets](https://huggingface.co/docs/datasets/index). Va más allá del fine-tuning básico, incorporando técnicas de regularización avanzadas implementadas manualmente, como **Adversarial Weight Perturbation (AWP)** y **Mixout**, junto con mecanismos robustos de manejo de entrenamiento y pruebas de integridad de código.
-
-El objetivo principal es proporcionar un flujo de trabajo estructurado para el fine-tuning de modelos para tareas de clasificación de texto (como el análisis de reseñas de productos), demostrando un control granular sobre el proceso de entrenamiento, la configuración de `Trainer`, los callbacks personalizados y la gestión de recursos.
-
-## Objetivos del Proyecto
-
-Los objetivos clave de este proyecto son:
-
-1.  **Preprocesamiento de Datos**: Tokenizar y preparar un corpus pequeño (ej. reseñas de productos) utilizando la librería `datasets` y los tokenizadores "fast" de Hugging Face.
-2.  **Configuración Avanzada del `Trainer`**:
-    * Parametrizar `TrainingArguments` (tamaño de batch, tasa de aprendizaje, épocas, etc.) desde un archivo de configuración central.
-    * Implementar **callbacks personalizados** para funcionalidades como Early Stopping y logging detallado.
-    * Integrar **métricas de evaluación personalizadas** (precisión, recall, F1-score) usando la función `compute_metrics`.
-3.  **Regularización Manual Avanzada**:
-    * Desarrollar e integrar **AWP (Adversarial Weight Perturbation)** de forma manual, sin depender de librerías externas pre-existentes para esta técnica.
-    * Implementar **Mixout** también de forma manual, como una alternativa al dropout tradicional, dentro de las capas del modelo.
-    * Garantizar que estas técnicas no interfieran con el `scheduler` de optimización.
-4.  **Robustez en el Entrenamiento**: Añadir lógica para el manejo de **acumulación de gradientes** y detección de errores de **OOM (Out-Of-Memory)** con capacidades de reinicio suave del entrenamiento.
-5.  **Pruebas de Integridad y Replicabilidad**: Incluir scripts de pruebas de integridad de código basados en AST para validar la "originalidad" de las implementaciones manuales, y asegurar que el proyecto sea fácilmente replicable.
-6.  **Fingerprinting de Ejecución**: Añadir un hash único (HMAC) en los checkpoints o logs al guardar, vinculando la ejecución al equipo/entorno.
-
-## Estructura del Repositorio
-``` markdown
-fine_tuning_transformers/
-├── data/
-│   ├── raw/
-│   │   └── product_reviews.csv              # Corpus original de reseñas (o cualquier otro formato)
-│   └── processed/
-│       ├── train_dataset/                   # Dataset de entrenamiento en formato .arrow o similar
-│       └── validation_dataset/              # Dataset de validación en formato .arrow o similar
-│
-├── training/
-│   ├── __init__.py
-│   ├── adversarial/
-│   │   ├── __init__.py
-│   │   ├── awp.py                           # Implementación manual de Adversarial Weight Perturbation (AWP)
-│   │   └── mixout.py                        # Implementación manual de Mixout
-│   │
-│   ├── callbacks/
-│   │   ├── __init__.py
-│   │   ├── custom_callbacks.py              # Callbacks personalizados (EarlyStopping, logging, etc.)
-│   │   └── fingerprint_callback.py          # Callback para añadir el hash de equipo a los checkpoints
-│   │
-│   ├── trainer_config.py                    # Funciones para configurar TrainingArguments y callbacks
-│   └── train.py                             # Script principal para orquestar el entrenamiento
-│
-├── models/
-│   ├── __init__.py
-│   └── custom_model.py                      # (Opcional) Archivo para definir un modelo personalizado si es necesario
-│
-├── evaluation/
-│   ├── __init__.py
-│   └── eval.py                              # Script para evaluar el modelo en el test set
-│
-├── utils/
-│   ├── __init__.py
-│   ├── preprocess.py                        # Funciones de tokenización, limpieza y split del dataset
-│   └── metrics.py                           # Función compute_metrics para calcular precisión y recall
-│
-├── logs/
-│   ├── checkpoints/                         # Checkpoints del modelo guardados por el Trainer
-│   ├── tensorboard/                         # Archivos de TensorBoard (.tfevents)
-│   └── run_history.json                     # (Opcional) Log de la ejecución con parámetros y métricas finales
-│
-├── scripts/
-│   ├── train_script.sh                      # Script para ejecutar training/train.py desde la terminal
-│   └── evaluate_script.sh                   # Script para ejecutar evaluation/eval.py
-│
-├── tests/
-│   ├── __init__.py
-│   ├── check_originality.py                 # Script basado en AST para pruebas de integridad
-│   ├── test_awp.py                          # Pruebas unitarias para la implementación de AWP
-│   ├── test_mixout.py                       # Pruebas unitarias para la implementación de Mixout
-│   └── test_callbacks.py                    # Pruebas unitarias para los callbacks personalizados
-│
-├── config/
-│   └── settings.py                          # Archivo de configuración para parámetros (batch size, LR, etc.)
-│
-├── .gitignore
-├── README.md
-├── requirements.txt
-└── run.py                                   # Script de entrada para ejecutar el proyecto
-```
-## REPLICAR proyecto
-1. Crear un entorno virtual (si no tienes uno)
-python -m venv venv
-
-2. Activar el entorno virtual
-- En Windows:
+# SOLUCIÓN
+## EJECUCIÓN DE PROYECTO (replicarlo localmente)
 ```bash
-.\venv\Scripts\activate
+    python3 -m venv venv 
+    source venv/bin/activate
+    pip install -r requirements.txt
+    python3 download_and_prepare_hf_data.py
+    python3 run.py preprocess
+    python3 run.py train
+    python3 run.py evaluate
 ```
-- En macOS/Linux:
-```bash
-source venv/bin/activate
+## PREGUNTA 01: Tokenización y DataLoader  
+- En `utils/preprocess.py`, en la función `tokenize_funtion()` cambiamos el máximo de tokens y ṕonemos  un pad dinámico
+```python
+#ANTES (linea 68)
+def tokenize_function(examples, tokenizer, text_column, max_length):
+    return tokenizer(examples[text_column], truncation=True, max_length=max_length)
+#AHORA
+def tokenize_function(examples, tokenizer, text_column): 
+    return tokenizer(examples[text_column], truncation=True, max_length=128, padding=False)
 ```
+OBS: El `max_length` que se tiene en `config/setting.py` es 128 tokens por defecto, pero se hace explicito para responder
+```python
+# (linea 38)
+MAX_SEQ_LENGTH = 128
+MAX_LENGTH = MAX_SEQ_LENGTH
+```
+- para habilitar la a`gradient_accumulation` con una GPU de 4 GB, ajustaríamos el parámetro `GRADIENT_ACCUMULATION_STEPS` en el archivo `config/settings.py` para simular un tamaño de batch mayor al original. Se cambia para ir acumulando sus gradientes antes de realizar una única actualización de los pesos del modelo
+```python
+#ANTES
+# (linea 63)
+PER_DEVICE_TRAIN_BATCH_SIZE = 16
+# (linea 100)
+GRADIENT_ACCUMULATION_STEPS = 1
+# AHORA
+# (linea 63)
+PER_DEVICE_TRAIN_BATCH_SIZE = 8 # 4gb gpu
+# (linea 100)
+GRADIENT_ACCUMULATION_STEPS = 2 # para mantener el original
+``` 
+## PREGUNTA 02: Configurar Trainer con adapters y LoRA  
+En `training/trainer_config.py` añado  
+- Añade una configuración de LoRA (`rank=8`, `α=16`) aplicada a las capas de atención.
+```python
+    #configuración lora
+    lora_config = LoraConfig(
+        r=8,                       # rank = 8
+        lora_alpha=16,             # alpha = 16
+        target_modules=[
+            "q_lin", "k_lin", "v_lin", "out_lin" # Capas de atención 
+        ],
+        lora_dropout=0.1,  
+        bias="none", 
+        task_type=TaskType.SEQ_CLS
+    )
 
-3. Instalar las dependencias
-```bash
-pip install -r requirements.txt
+    # Aplica LoRA
+    model = get_peft_model(model, lora_config)    
+    #parámetros entrenablesLoRA
+    model.print_trainable_parameters() 
+    logger.info("LoRA aplicado al modelo. Se han modificado los parámetros entrenables.")
 ```
+- Un Adapter (`bottleneck=64`) en cada capa feed-forward.  
+```python
+adapter_config = PfeifferConfig(
+        reduction_factor=16,
+        non_linearity="relu",
+        leave_out=["predictions"],
+        bottleneck_dim=64 # cambio el bottleneck
+    )
+```
+- Define cómo en el loop de entrenamiento se habilitan solo estos parámetros para optimización.
+La optimización de solo los parámetros de LoRa durante el entrenamiento se gestiona automáticamente al utilizar la librería PEFT de Hugging Face. Al envolver el modelo base con get_peft_model(), esta función congela eficazmente las capas pre-entre nadas existentes, designando exclusivamente las nuevas matrices de bajo rango de LoRA como entrenables. Esto simplifica significativamente el proceso, ya que el optimizador del Trainer de Hugging Face solo verá y actualizará los gradientes asociados a estos parámetros eficientemente ajustados.
+
+## PREGUNTA 03: Implementación de AWP y mixout manual  
+En `training/train.py`, dentro de `compute_loss` o hook de backward:  
+- Aplica AWP con `ε=0.01 durante la mitad de cada epoch
+```python
+#Antes
+USE_AWP = False
+AWP_LR = 1e-4             # Tasa de aprendizaje para la perturbación AWP
+AWP_EPS = 1e-6            # Magnitud de la perturbación epsilon
+AWP_START_STEP = 500      # Paso a partir del cual aplicar AWP
+AWP_EMB_NAME = "distilbert.embeddings.word_embeddings.weight"
+#ahora 
+USE_AWP = True
+AWP_LR = 1e-4   
+AWP_EPS = 0.01   
+AWP_START_STEP = 0 
+``` 
+OBS: mi estructura original para AWP está en la clase `customTrainer` y en la `función train_model`, por lo que solo se cambiará `AWP_EPS` en `settings.py` a 0.01 y que `AWP_START_STEP` se calcule dinámicamente para que AWP se active a la mitad de los pasos
+```python
+#antes
+    awp_config = {
+        'adv_lr': settings.AWP_LR,
+        'adv_eps': settings.AWP_EPS,
+        'awp_start_step': settings.AWP_START_STEP,
+        'awp_emb_name': settings.AWP_EMB_NAME,
+    }
+#ahora
+    awp_config = {
+        'adv_lr': settings.AWP_LR,
+        'adv_eps': settings.AWP_EPS,
+        'awp_start_step': awp_start_step_calculated, #se aplica
+        'awp_emb_name': settings.AWP_EMB_NAME
+    }
+```
+- Integra mixout con `p=0.1` en las capas lineales del classifier.
+
+## PREGUNTA 04: Callbacks y métricas  
+- Crea un callback sencillo para early stopping tras 3 epochs sin mejora en F1.  
+- Ajusta `compute_metrics` para devolver precision, recall y F1, y muestra la matriz de confusión tras el entrenamiento.
+
+## PREGUNTA 05: Evaluación final  
+- Ejecuta `evaluation/eval.py` sobre el test set y captura el reporte de clasificación.  
+- Redacta en 5 líneas cómo afectarían los adapters y LoRA a la latencia de inferencia.

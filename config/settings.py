@@ -57,10 +57,10 @@ SEED = RANDOM_SEED
 NUM_LABELS = 2 # Valor por defecto. preprocess.py lo detectará y actualizará.
 
 # Número total de épocas para entrenar
-NUM_TRAIN_EPOCHS = 3.0
+NUM_TRAIN_EPOCHS = 2
 
 # Tamaño de batch por dispositivo (GPU/CPU) para entrenamiento
-PER_DEVICE_TRAIN_BATCH_SIZE = 16
+PER_DEVICE_TRAIN_BATCH_SIZE = 8
 
 # Tamaño de batch por dispositivo (GPU/CPU) para evaluación
 PER_DEVICE_EVAL_BATCH_SIZE = 32
@@ -97,7 +97,7 @@ METRIC_FOR_BEST_MODEL = "eval_f1"
 # Modo de optimización (ej. "max" para métricas como F1, "min" para pérdida)
 GREATER_IS_BETTER = True # True si una mayor 'eval_f1' es mejor
 USE_GRADIENT_CHECKPOINTING = False
-GRADIENT_ACCUMULATION_STEPS = 1
+GRADIENT_ACCUMULATION_STEPS = 2
 
 # Usar entrenamiento de precisión mixta (float16) si hay GPU disponible
 FP16 = torch.cuda.is_available()
@@ -107,10 +107,10 @@ EARLY_STOPPING_PATIENCE = 3   # Número de épocas a esperar si no hay mejora
 EARLY_STOPPING_THRESHOLD = 0.001 # Mejora mínima requerida para considerarse "mejora"
 
 # --- Configuración de AWP (Adversarial Weight Perturbation) ---
-USE_AWP = False
-AWP_LR = 1e-4             # Tasa de aprendizaje para la perturbación AWP
-AWP_EPS = 1e-6            # Magnitud de la perturbación epsilon
-AWP_START_STEP = 500      # Paso a partir del cual aplicar AWP
+USE_AWP = True
+AWP_LR = 1e-4   
+AWP_EPS = 0.01   
+AWP_START_STEP = 0 
 AWP_EMB_NAME = "distilbert.embeddings.word_embeddings.weight"
 
 USE_MIXOUT = False
