@@ -103,8 +103,8 @@ GRADIENT_ACCUMULATION_STEPS = 2
 FP16 = torch.cuda.is_available()
 
 # --- Configuración de Early Stopping ---
-EARLY_STOPPING_PATIENCE = 3   # Número de épocas a esperar si no hay mejora
-EARLY_STOPPING_THRESHOLD = 0.001 # Mejora mínima requerida para considerarse "mejora"
+EARLY_STOPPING_PATIENCE = 3 
+EARLY_STOPPING_THRESHOLD = 0.001
 
 # --- Configuración de AWP (Adversarial Weight Perturbation) ---
 USE_AWP = True

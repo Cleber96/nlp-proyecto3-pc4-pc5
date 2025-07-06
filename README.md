@@ -117,8 +117,52 @@ MIXOUT_PROBABILITY = 0.1
 ```
 ## PREGUNTA 04: Callbacks y métricas  
 - Crea un callback sencillo para early stopping tras 3 epochs sin mejora en F1.  
-- Ajusta `compute_metrics` para devolver precision, recall y F1, y muestra la matriz de confusión tras el entrenamiento.
+```python
+# En config/settings.py por defecto por lo que se mantendrá
+EARLY_STOPPING_PATIENCE = 3 
+EARLY_STOPPING_THRESHOLD = 0.001
+METRIC_FOR_BEST_MODEL = "eval_f1"
+GREATER_IS_BETTER = True
+# En training/trainer_config.py
+```
+dentro de trainier_config se crea un callback sencillo
+```python
+def get_all_callbacks(early_stopping_patience: int,early_stopping_threshold: float,log_file_path: str) -> List[TrainerCallback]:
+    callbacks = get_custom_callbacks(
+        early_stopping_patience=early_stopping_patience,
+        early_stopping_threshold=early_stopping_threshold,
+        log_file_path=log_file_path
+    )
+    callbacks.append(FingerprintCallback()) 
+    return callbacks
+```
+dentro de utils/metrics.py en la función `plot_confusion_matrix`, se cera un callback sencillo y se importa en `training/train.py` para mostrarlo
+```python
+def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, labels: list, output_path: str):
+    # Calcula la matriz de confusión
+    cm = confusion_matrix(y_true, y_pred) 
 
+    plt.title("Matriz de Confusión")
+    plt.xlabel("Predicción")
+    plt.ylabel("Verdadero")
+    plt.tight_layout()
+    plt.savefig(output_path)
+```
+- Ajusta `compute_metrics` para devolver precision, recall y F1, y muestra la matriz de confusión tras el entrenamiento.
+```python
+def compute_metrics(p: EvalPrediction) -> Dict[str, float]:
+    predictions = np.argmax(p.predictions, axis=1)
+    labels = p.label_ids
+    accuracy = accuracy_score(labels, predictions)
+    precision, recall, f1, _ = precision_recall_fscore_support(labels, predictions, average='weighted', zero_division=0) 
+    metrics = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+    }
+    return metrics
+```
 ## PREGUNTA 05: Evaluación final  
 - Ejecuta `evaluation/eval.py` sobre el test set y captura el reporte de clasificación.  
 - Redacta en 5 líneas cómo afectarían los adapters y LoRA a la latencia de inferencia.

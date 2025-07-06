@@ -18,6 +18,7 @@ from adapters import AutoAdapterModel, AdapterConfig, PfeifferConfig
 
 # Import módulos locales
 from config import settings
+from utils.metrics import compute_metrics, plot_confusion_matrix
 from utils.metrics import compute_metrics
 from training.trainer_config import get_training_arguments, get_all_callbacks # <--- Asegúrate de importar estas funciones
 from training.adversarial.awp import AWP
@@ -198,6 +199,9 @@ def train_model():
     num_training_steps = int(len(train_dataset) / settings.PER_DEVICE_TRAIN_BATCH_SIZE * settings.NUM_TRAIN_EPOCHS)
     calculated_warmup_steps = int(num_training_steps * settings.WARMUP_RATIO) # Usar WARMUP_RATIO de settings
 
+    awp_start_step_calculated = int(num_training_steps / 2) # AWP inicia a la mitad del entrenamiento
+    logger.info(f"AWP se activará a partir del paso: {awp_start_step_calculated}")
+    
     logger.info(f"Número total de pasos de entrenamiento: {num_training_steps}")
     logger.info(f"Pasos de calentamiento (warmup): {calculated_warmup_steps}")
 
@@ -294,6 +298,22 @@ def train_model():
         trainer.save_metrics("train", metrics)
         trainer.save_state()
 
+        logger.info("Realizando evaluación final para la matriz de confusión...")
+        eval_output = trainer.predict(eval_dataset)
+        predictions = np.argmax(eval_output.predictions, axis=1)
+        true_labels = eval_output.label_ids
+
+        # Obtener los nombres de las etiquetas para la matriz de confusión
+        if hasattr(model.config, 'id2label') and model.config.id2label:
+            label_names = [model.config.id2label.get(i, str(i)) for i in range(settings.NUM_LABELS)]
+        else:
+            label_names = [str(i) for i in range(settings.NUM_LABELS)] 
+            logger.warning("No se encontraron 'id2label' en la configuración del modelo. Usando etiquetas numéricas.")
+
+        confusion_matrix_output_path = os.path.join(settings.LOGS_DIR, "confusion_matrix.png")
+        plot_confusion_matrix(true_labels, predictions, label_names, confusion_matrix_output_path)
+        
+        
         logger.info("Proceso de entrenamiento finalizado.")
     else:
         logger.warning("El entrenamiento no se completó exitosamente o no se generó un resultado de entrenamiento.")

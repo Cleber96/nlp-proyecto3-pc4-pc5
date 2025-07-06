@@ -2,6 +2,7 @@
 
 import os
 import json
+from transformers import EarlyStoppingCallback
 import logging
 from typing import List
 from transformers import TrainerCallback, TrainingArguments, TrainerState, TrainerControl
@@ -80,6 +81,16 @@ def get_custom_callbacks(
     """
     Devuelve una lista de instancias de callbacks personalizados.
     """
+    custom_callbacks_list = []
+
+    custom_callbacks_list.append(
+        EarlyStoppingCallback(
+            early_stopping_patience=early_stopping_patience,
+            early_stopping_threshold=early_stopping_threshold
+        )
+    )
+    logger.info(f"EarlyStoppingCallback añadido a custom_callbacks con paciencia={early_stopping_patience} y umbral={early_stopping_threshold}.")
+    
     callbacks = []
     callbacks.append(CustomEarlyStoppingCallback(
         early_stopping_patience=early_stopping_patience,
