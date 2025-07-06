@@ -2,12 +2,12 @@
 
 import os
 import torch
+from typing import Dict, Union, List, Any
 import logging
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
     Trainer,
-    TrainingArguments,
     TrainerCallback,
     TrainerState,
     TrainerControl
@@ -17,7 +17,7 @@ from datasets import load_from_disk, DatasetDict
 # Import módulos locales
 from config import settings
 from utils.metrics import compute_metrics
-from training.trainer_config import get_training_arguments, get_all_callbacks
+from training.trainer_config import get_training_arguments, get_all_callbacks # <--- Asegúrate de importar estas funciones
 from training.adversarial.awp import AWP
 from training.adversarial.mixout import apply_mixout_to_model
 
@@ -38,17 +38,19 @@ class CustomTrainer(Trainer):
         model.train()
         inputs = self._prepare_inputs(inputs)
 
+        # Asegúrate de que self.args.device.type esté definido (e.g., "cuda" o "cpu")
+        device_type = self.args.device.type if hasattr(self.args, 'device') and self.args.device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
+
         with self.autocast_dtensor_enabled():
             # Paso 1: Forward pass y cálculo de la pérdida normal
-            with torch.autocast(self.args.device.type, dtype=torch.float16, enabled=self.args.fp16):
+            # Usa el device_type determinado
+            with torch.autocast(device_type, dtype=torch.float16, enabled=self.args.fp16):
                 outputs = model(**inputs)
                 loss = self.compute_loss(model, outputs, inputs)
 
             if self.args.n_gpu > 1:
                 loss = loss.mean() # Promedio si hay múltiples GPUs
 
-            # Si se usa acumulación de gradientes, la pérdida se escala automáticamente por HF Trainer
-            # para que el gradiente sea correcto al final de la acumulación.
             if self.args.gradient_accumulation_steps > 1:
                 loss = loss / self.args.gradient_accumulation_steps
 
@@ -56,15 +58,14 @@ class CustomTrainer(Trainer):
             self.accelerator.backward(loss)
 
             # Paso 3: Aplicar AWP si está habilitado
-            if self.awp_enabled:
+            if self.awp_enabled and self.state.global_step >= self.awp_config.get('awp_start_step', 0): # Aplicar AWP a partir de cierto paso
                 if self.awp_adversary is None:
-                    # Inicializar AWP con el optimizador actual del Trainer
-                    # Accedemos al optimizador que el Trainer ha preparado
                     self.awp_adversary = AWP(
                         model=model,
                         optimizer=self.optimizer,
                         adv_lr=self.awp_config.get('adv_lr', 0.001),
-                        adv_eps=self.awp_config.get('adv_eps', 0.001)
+                        adv_eps=self.awp_config.get('adv_eps', 0.001),
+                        param_name=self.awp_config.get('awp_emb_name', 'word_embeddings') # Usar un nombre de parámetro o una lista de nombres
                     )
                 
                 # Guardar los pesos originales antes de la perturbación
@@ -74,7 +75,7 @@ class CustomTrainer(Trainer):
                 self.awp_adversary.attack_step()
 
                 # Paso 4: Recalcular la pérdida con los pesos perturbados (AWP loss)
-                with torch.autocast(self.args.device.type, dtype=torch.float16, enabled=self.args.fp16):
+                with torch.autocast(device_type, dtype=torch.float16, enabled=self.args.fp16):
                     outputs_awp = model(**inputs)
                     loss_awp = self.compute_loss(model, outputs_awp, inputs)
 
@@ -87,7 +88,6 @@ class CustomTrainer(Trainer):
                 self.accelerator.backward(loss_awp)
                 self.awp_adversary.restore() # Restaurar pesos para el siguiente forward pass
 
-            # El Trainer maneja automáticamente el paso del optimizador y el scheduler
             return loss.detach() # Retornar la pérdida normal, pero la optimización incluye AWP
 
 def train_model():
@@ -98,11 +98,10 @@ def train_model():
         train_dataset = load_from_disk(os.path.join(settings.PROCESSED_DATA_DIR, "train_dataset"))
         eval_dataset = load_from_disk(os.path.join(settings.PROCESSED_DATA_DIR, "validation_dataset"))
         logger.info(f"Datasets cargados. Entrenamiento: {len(train_dataset)} muestras, Validación: {len(eval_dataset)} muestras.")
-        # Asegurarse de que son de tipo Dataset (no DatasetDict si se guardó así)
         if isinstance(train_dataset, DatasetDict):
             train_dataset = train_dataset['train']
         if isinstance(eval_dataset, DatasetDict):
-            eval_dataset = eval_dataset['validation'] # O 'test' si se usa así
+            eval_dataset = eval_dataset['validation']
     except Exception as e:
         logger.error(f"Error al cargar los datasets procesados: {e}")
         logger.error("Asegúrate de que '01_Data_Preprocessing_and_Tokenization.ipynb' haya sido ejecutado.")
@@ -118,12 +117,10 @@ def train_model():
 
     # Cargar el modelo pre-entrenado para clasificación
     try:
-        # Se carga el modelo inicial para Mixout (si está habilitado)
         original_pretrained_model = AutoModelForSequenceClassification.from_pretrained(
             settings.MODEL_NAME,
             num_labels=settings.NUM_LABELS
         )
-        # El modelo que será entrenado
         model = AutoModelForSequenceClassification.from_pretrained(
             settings.MODEL_NAME,
             num_labels=settings.NUM_LABELS
@@ -135,37 +132,43 @@ def train_model():
 
     if settings.USE_MIXOUT:
         try:
-            # Asegurarse de que original_pretrained_model tenga el mismo estado inicial
-            # Esto es clave para que Mixout funcione correctamente
             original_pretrained_model_copy = AutoModelForSequenceClassification.from_pretrained(
                 settings.MODEL_NAME,
                 num_labels=settings.NUM_LABELS
             )
-            model = apply_mixout_to_model(model, original_pretrained_model_copy, settings.MIXOUT_PROB)
-            logger.info(f"Mixout aplicado al modelo con probabilidad p={settings.MIXOUT_PROB}.")
+            model = apply_mixout_to_model(model, original_pretrained_model_copy, settings.MIXOUT_PROBABILITY)
+            logger.info(f"Mixout aplicado al modelo con probabilidad p={settings.MIXOUT_PROBABILITY}.")
         except Exception as e:
             logger.error(f"Error al aplicar Mixout: {e}")
-            # Considerar si se debe detener el entrenamiento o continuar sin Mixout
-            settings.USE_MIXOUT = False # Deshabilitar si falla
+            settings.USE_MIXOUT = False
             logger.warning("El entrenamiento continuará sin Mixout debido al error anterior.")
             
+    # --- CÁLCULO DE WARMUP_STEPS AQUÍ ---
+    # ESTO ES LO QUE ESTABA CAUSANDO EL ERROR 'WARMUP_STEPS'
+    num_training_steps = int(len(train_dataset) / settings.PER_DEVICE_TRAIN_BATCH_SIZE * settings.NUM_TRAIN_EPOCHS)
+    calculated_warmup_steps = int(num_training_steps * settings.WARMUP_RATIO) # Usar WARMUP_RATIO de settings
+
+    logger.info(f"Número total de pasos de entrenamiento: {num_training_steps}")
+    logger.info(f"Pasos de calentamiento (warmup): {calculated_warmup_steps}")
+
     training_args = get_training_arguments(
-        output_dir=settings.CHECKPOINT_DIR,
+        output_dir=settings.CHECKPOINTS_DIR,
         logging_dir=settings.TENSORBOARD_LOG_DIR,
-        per_device_train_batch_size=settings.TRAIN_BATCH_SIZE,
-        per_device_eval_batch_size=settings.EVAL_BATCH_SIZE,
+        per_device_train_batch_size=settings.PER_DEVICE_TRAIN_BATCH_SIZE,
+        per_device_eval_batch_size=settings.PER_DEVICE_EVAL_BATCH_SIZE,
         num_train_epochs=settings.NUM_TRAIN_EPOCHS,
         learning_rate=settings.LEARNING_RATE,
         weight_decay=settings.WEIGHT_DECAY,
-        warmup_steps=settings.WARMUP_STEPS,
+        warmup_steps=calculated_warmup_steps, # <--- ¡AHORA ESTO ES CORRECTO!
         save_strategy=settings.SAVE_STRATEGY,
         evaluation_strategy=settings.EVALUATION_STRATEGY,
         load_best_model_at_end=settings.LOAD_BEST_MODEL_AT_END,
         metric_for_best_model=settings.METRIC_FOR_BEST_MODEL,
-        fp16=settings.USE_FP16,
+        fp16=settings.FP16,
         gradient_accumulation_steps=settings.GRADIENT_ACCUMULATION_STEPS,
         gradient_checkpointing=settings.USE_GRADIENT_CHECKPOINTING,
         logging_steps=settings.LOGGING_STEPS,
+        save_steps=settings.SAVE_STEPS,
         save_total_limit=settings.SAVE_TOTAL_LIMIT,
         seed=settings.SEED,
     )
@@ -178,25 +181,41 @@ def train_model():
 
     trainer_class = CustomTrainer if settings.USE_AWP else Trainer
     awp_config = {
-        'adv_lr': settings.AWP_ADV_LR,
-        'adv_eps': settings.AWP_ADV_EPS
+        'adv_lr': settings.AWP_LR,
+        'adv_eps': settings.AWP_EPS,
+        'awp_start_step': settings.AWP_START_STEP,
+        'awp_emb_name': settings.AWP_EMB_NAME,
     }
 
-    trainer = trainer_class(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics, # Función para calcular métricas
-        callbacks=all_callbacks,
-        awp_enabled=settings.USE_AWP, # Solo para CustomTrainer
-        awp_config=awp_config,        # Solo para CustomTrainer
-    )
+    # Diccionario para almacenar los argumentos comunes del Trainer
+    common_trainer_kwargs = {
+        "model": model,
+        "args": training_args,
+        "train_dataset": train_dataset,
+        "eval_dataset": eval_dataset,
+        "tokenizer": tokenizer,
+        "compute_metrics": compute_metrics,
+        "callbacks": all_callbacks,
+    }
+
+    if settings.USE_AWP:
+        # Si AWP está habilitado, añade los argumentos específicos de AWP
+        # SOLO si estamos usando CustomTrainer
+        trainer = CustomTrainer(
+            **common_trainer_kwargs,
+            awp_enabled=settings.USE_AWP,
+            awp_config=awp_config,
+        )
+        logger.info("CustomTrainer con AWP habilitado.")
+    else:
+        # Si AWP no está habilitado, usa el Trainer base sin argumentos AWP
+        trainer = Trainer(
+            **common_trainer_kwargs
+        )
+        logger.info("Trainer base de Hugging Face en uso.")
 
     train_result = None
     try:
-        # Reanudar desde un checkpoint si se especifica
         resume_from_checkpoint = training_args.resume_from_checkpoint
         if resume_from_checkpoint and not os.path.exists(resume_from_checkpoint):
             logger.warning(f"El checkpoint {resume_from_checkpoint} no existe. Ignorando la reanudación.")
@@ -209,22 +228,17 @@ def train_model():
     except torch.cuda.OutOfMemoryError as e:
         logger.error(f"¡ERROR: CUDA Out of Memory! Considera reducir el batch_size, aumentar gradient_accumulation_steps, o usar gradient_checkpointing/fp16.")
         logger.error(f"Detalles del error: {e}")
-        # Aquí podrías añadir lógica para guardar el estado, ajustar parámetros y reintentar
-        # Esto es más complejo y a menudo se delega a frameworks como Accelerate
-        # Por ahora, simplemente salimos o puedes añadir un sys.exit(1)
         return
     except Exception as e:
-        logger.error(f"Ocurrió un error inesperado durante el entrenamiento: {e}")
-        return
+        logger.error(f"Ocurrió un error inesperado durante el entrenamiento: {e}", exc_info=True)
+        raise
 
     if train_result:
-        # Guarda el modelo final entrenado (que será el mejor si load_best_model_at_end=True)
-        final_model_path = os.path.join(settings.CHECKPOINT_DIR, "final_model")
+        final_model_path = os.path.join(settings.CHECKPOINTS_DIR, "final_model")
         trainer.save_model(final_model_path)
         tokenizer.save_pretrained(final_model_path)
         logger.info(f"Modelo y tokenizer finales guardados en: {final_model_path}")
 
-        # Puedes también guardar el estado del entrenamiento (métricas, etc.) si no lo hizo el callback
         metrics = train_result.metrics
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)

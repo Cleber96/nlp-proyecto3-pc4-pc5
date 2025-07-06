@@ -3,6 +3,7 @@
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import EvalPrediction
+from typing import Dict
 import logging
 
 # Configuración de logging

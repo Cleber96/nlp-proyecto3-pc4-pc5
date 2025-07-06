@@ -5,9 +5,10 @@ import logging
 import os
 import sys
 
+from typing import Dict
 from config import settings
-from utils.preprocess import preprocess_data # Asumiendo que preprocess_data es una función principal en utils/preprocess.py
-from training.train import main as train_main # Importa la función main del script train.py
+from utils.preprocess import run_preprocessing
+from training.train import train_model as train_main
 from evaluation.eval import main as eval_main # Importa la función main del script eval.py
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,14 +37,8 @@ def main():
     if args.action == "preprocess" or args.action == "all":
         logger.info("Iniciando fase de preprocesamiento de datos...")
         try:
-            preprocess_data(
-                raw_data_path=os.path.join(settings.RAW_DATA_DIR, settings.RAW_DATA_FILENAME),
-                processed_data_dir=settings.PROCESSED_DATA_DIR,
-                model_checkpoint=settings.MODEL_CHECKPOINT,
-                max_seq_length=settings.MAX_SEQ_LENGTH,
-                train_val_split_ratio=settings.TRAIN_VALIDATION_SPLIT_RATIO,
-                random_seed=settings.RANDOM_SEED
-            )
+            # Código actual en run.py
+            run_preprocessing()
             logger.info("Preprocesamiento de datos completado exitosamente.")
         except Exception as e:
             logger.error(f"Error durante el preprocesamiento de datos: {e}", exc_info=True)
@@ -82,7 +77,7 @@ def main():
                 eval_main(
                     model_path=evaluation_model_path,
                     processed_data_dir=settings.PROCESSED_DATA_DIR,
-                    model_checkpoint=settings.MODEL_CHECKPOINT # Necesario para el tokenizador
+                    model_name=settings.MODEL_NAME # Usar MODEL_NAME para cargar el tokenizador base
                 )
                 logger.info("Evaluación del modelo completada exitosamente.")
             except Exception as e:

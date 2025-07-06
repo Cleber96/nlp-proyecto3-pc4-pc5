@@ -66,16 +66,6 @@ fine_tuning_transformers/
 │   ├── tensorboard/                         # Archivos de TensorBoard (.tfevents)
 │   └── run_history.json                     # (Opcional) Log de la ejecución con parámetros y métricas finales
 │
-├── notebooks/
-│   ├── 00_Project_Setup_and_Overview.ipynb  # Configuración del entorno, overview del proyecto y librerías
-│   ├── 01_Data_Preprocessing_and_Tokenization.ipynb # Teoría y aplicación de `datasets` y tokenizadores "fast"
-│   ├── 02_Trainer_Configuration_and_Basic_Training.ipynb # Teoría de `Trainer`, `TrainingArguments` y entrenamiento base
-│   ├── 03_Custom_Callbacks_and_Metrics.ipynb # Teoría y aplicación de `EarlyStopping`, logging y `compute_metrics`
-│   ├── 04_Adversarial_Weight_Perturbation_(AWP).ipynb # Teoría de AWP y su implementación manual
-│   ├── 05_Mixout_Implementation.ipynb       # Teoría de Mixout y su implementación manual
-│   ├── 06_Gradient_Accumulation_and_OOM_Handling.ipynb # Teoría y manejo de acumulación de gradientes y OOM
-│   └── 07_Full_Training_Orchestration_and_Evaluation.ipynb # Integración de todos los componentes y script de evaluación
-│
 ├── scripts/
 │   ├── train_script.sh                      # Script para ejecutar training/train.py desde la terminal
 │   └── evaluate_script.sh                   # Script para ejecutar evaluation/eval.py
