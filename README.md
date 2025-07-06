@@ -105,8 +105,16 @@ OBS: mi estructura original para AWP está en la clase `customTrainer` y en la `
         'awp_emb_name': settings.AWP_EMB_NAME
     }
 ```
-- Integra mixout con `p=0.1` en las capas lineales del classifier.
+- para integrar mixout con `p=0.1` en las capas lineales del classifier primero en `config/settings.py` y se actualiza la clase `MixoutLinear` y su función apply_mixout_to_model para adaptarlo
 
+```python
+#antes
+USE_MIXOUT = False
+MIXOUT_PROBABILITY = 0.7
+# ahroa
+USE_MIXOUT = True
+MIXOUT_PROBABILITY = 0.1
+```
 ## PREGUNTA 04: Callbacks y métricas  
 - Crea un callback sencillo para early stopping tras 3 epochs sin mejora en F1.  
 - Ajusta `compute_metrics` para devolver precision, recall y F1, y muestra la matriz de confusión tras el entrenamiento.
